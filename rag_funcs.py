@@ -7,13 +7,18 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains import create_retrieval_chain
 
-from langchain_community.embeddings import HuggingFaceEmbeddings
+# from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
+
 from langchain_core.documents import Document
+from langchain_community.document_loaders.csv_loader import CSVLoader
 
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
 
 import json
+import pandas as pd
+import ast
 from dotenv import load_dotenv
 
 
@@ -24,8 +29,8 @@ load_dotenv(override=True)
 # Google API 키 설정
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
-# 문서 로더
-def load_and_split_documents(urls: list):
+# 웹 문서 로더
+def load_url_and_split_documents(urls: list):
     """
     여러 URL에서 문서를 로드하고 청크로 분할합니다.
 
@@ -43,14 +48,33 @@ def load_and_split_documents(urls: list):
         all_docs.extend(docs)
     
     # chunk_size를 더 크게 설정
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=800, 
+        chunk_overlap=80)
     splits = text_splitter.split_documents(all_docs)
     return splits
 
 
+# text 데이터 문서 로더
+def load_csv_and_split_documents(file_path):
+    """
+    csv 파일 형태의 데이터를 로딩해서 데이터 스플릿함
+    """
+
+    loader = CSVLoader(file_path=file_path, 
+                       encoding='utf-8')
+    all_docs = loader.load()
+
+    print("파일이 로딩 됐습니다.")
+    # chunk_size를 더 크게 설정
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=800, 
+        chunk_overlap=100
+        )
+    splits = text_splitter.split_documents(all_docs)
+    return splits
 
 # 벡터 DB 구성
-
 def create_vector_db_with_google(splits: list):
     """
     분할된 문서 청크를 사용하여 ChromaDB 벡터 DB를 생성합니다.
@@ -103,6 +127,33 @@ def create_vector_db_with_hf(splits: list, db_path: str = "./chroma_db"):
 
     return vectorstore
 
+# Chroma DB 로드 (한국어 SBERT 모델 사용)
+def load_vector_db(persist_directory: str = "./chroma_db", 
+                   collection_name: str = "documents",
+                   model_name: str = "jhgan/ko-sbert-nli"):
+    """
+    기존 Chroma DB 로드
+    
+    Args:
+        persist_directory: Chroma DB 저장 경로
+        collection_name: 컬렉션 이름
+        model_name: HuggingFace 임베딩 모델명
+    
+    Returns:
+        Chroma vectorstore 객체
+    """
+    # 한국어 SBERT 모델 초기화 (저장할 때와 동일한 모델 사용)
+    embeddings = HuggingFaceEmbeddings(model_name=model_name)
+    
+    # Chroma DB 로드
+    vectorstore = Chroma(
+        persist_directory=persist_directory,
+        embedding_function=embeddings,
+        collection_name=collection_name
+    )
+    print("크로마DB 데이터 저장이 됐습니다.")
+    
+    return vectorstore
 
 # 1. 원하는 JSON 구조를 정의하는 Pydantic 모델
 class LocationInfo(BaseModel):
@@ -174,26 +225,41 @@ def run_rag_query(chain, query: str):
 
 
 if __name__ == "__main__":
-    # 여러 URL 리스트
-    urls = [
-        "https://namu.wiki/w/%EC%8A%AC%EA%B8%B0%EB%A1%9C%EC%9A%B4%20%EC%9D%98%EC%82%AC%EC%83%9D%ED%99%9C",
-        "https://ko.wikipedia.org/wiki/%EC%8A%AC%EA%B8%B0%EB%A1%9C%EC%9A%B4_%EC%9D%98%EC%82%AC%EC%83%9D%ED%99%9C",
-        "https://blog.naver.com/everydayhealth/223774177210",
-    ]
 
     
     # 1. 데이터 로드 및 분할
-    document_splits = load_and_split_documents(urls)
+    # 1-1 웹 url 문서 로더
+    # 여러 URL 리스트
+    # urls = [
+    #     "https://namu.wiki/w/%EC%8A%AC%EA%B8%B0%EB%A1%9C%EC%9A%B4%20%EC%9D%98%EC%82%AC%EC%83%9D%ED%99%9C",
+    #     "https://ko.wikipedia.org/wiki/%EC%8A%AC%EA%B8%B0%EB%A1%9C%EC%9A%B4_%EC%9D%98%EC%82%AC%EC%83%9D%ED%99%9C",
+    #     "https://blog.naver.com/everydayhealth/223774177210",
+    # ]
+    # document_splits = load_url_and_split_documents(urls)
+
+
+    # 1-2 csv 파일 로더
+    # folder_path와 file_name을 결합하여 file_path = './data/KC_MEDIA_VIDO_AREA_DATA_2023.csv'
+    folder_path = './data'
+    file_name = 'KC_MEDIA_VIDO_AREA_DATA_2023.csv'
+    file_path = os.path.join(folder_path, file_name)
+
+    document_splits = load_csv_and_split_documents(file_path)
+    
     
     # 2. 벡터 DB 생성
     vector_db = create_vector_db_with_hf(document_splits)
     
+
+    # vector db 구성 되어있을 경우
+    # vector_db = load_vector_db()
+
     # 3. RAG 체인 구성
     # rag_chain = get_rag_chain(vector_db)
     rag_chain = get_rag_chain_with_json_output(vector_db)
     
     # 4. 사용자 쿼리 실행
-    query = "드라마 '슬기로운 의사생활'에 나오는 가장 유명한 촬영 장소는 5개를 알려줘?"
+    query = "좋은 맛에 취하다"
     resutl = run_rag_query(rag_chain, query)
     print("--- Generated Answer ---")
     print(resutl)
