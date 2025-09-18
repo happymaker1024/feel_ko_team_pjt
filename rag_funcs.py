@@ -203,6 +203,7 @@ def get_rag_chain_with_json_output(vectorstore):
     # 5. 프롬프트 템플릿 정의
     prompt = ChatPromptTemplate.from_template("""
     주어진 맥락을 사용하여 질문에 답변하세요.
+    사용자가 입력한 드라마 제목에서 촬영장소 2개를 출력해주세요.                                        
     맥락에 없는 내용은 답변하지 마세요.
 
     {format_instructions}
@@ -242,7 +243,6 @@ def run_rag_query(chain, query: str):
 
 
 if __name__ == "__main__":
-
     
     # 1. 데이터 로드 및 분할
     # 1-1 웹 url 문서 로더
@@ -257,15 +257,15 @@ if __name__ == "__main__":
 
     # 1-2 csv 파일 로더
     # folder_path와 file_name을 결합하여 file_path = './data/KC_MEDIA_VIDO_AREA_DATA_2023.csv'
-    # folder_path = 'data'
-    # file_name = 'test_data_small.csv'
-    # # file_path = os.path.join(folder_path, file_name)
-    # file_path=f'{folder_path}/{file_name}'
-    # document_splits = load_csv_and_split_documents(file_path)
+    folder_path = 'data'
+    file_name = 'test_data_small.csv'
+    # file_path = os.path.join(folder_path, file_name)
+    file_path=f'{folder_path}/{file_name}'
+    document_splits = load_csv_and_split_documents(file_path)
     
     
     # 2. 벡터 DB 생성
-    # vector_db = create_vector_db_with_hf(document_splits)
+    vector_db = create_vector_db_with_hf(document_splits)
     
 
     # vector db 구성 되어있을 경우
@@ -276,8 +276,9 @@ if __name__ == "__main__":
     rag_chain = get_rag_chain_with_json_output(vector_db)
     
     # 4. 사용자 쿼리 실행
-    query = "18 어게인"
+    # query = "18 어게인"
     # query = "좋은 맛에 취하다"
+    query = "슬기로운 의사생활"
     resutl = run_rag_query(rag_chain, query)
     print("--- Generated Answer ---")
     print(resutl)

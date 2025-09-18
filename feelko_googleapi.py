@@ -11,6 +11,53 @@ vector_db = rag_funcs.load_vector_db()
 # 2. RAG 체인 구성
 rag_chain = rag_funcs.get_rag_chain_with_json_output(vector_db)
 
+# 웹에 출력한 데이터 추출 함수
+def format_chatbot_response(chatbot_response):
+    """챗봇 응답을 안전하게 포맷팅"""
+    
+    print_datas = ""
+    
+    try:
+        # print(type(chatbot_response))
+        # print(chatbot_response)
+        # JSON 문자열인 경우 파싱
+    # 기존 코드에서 이 부분만 수정
+        if isinstance(chatbot_response, str):
+            import re
+            # 마크다운 코드블록 제거 (이 2줄만 추가!)
+            pattern = r'```(?:json)?\s*(.*?)\s*```'
+            match = re.search(pattern, chatbot_response, re.DOTALL)
+            if match:
+                chatbot_response = match.group(1).strip()
+            import ast
+            chatbot_response =  ast.literal_eval(chatbot_response)
+        
+        # 단일 객체인 경우 리스트로 변환
+        elif isinstance(chatbot_response, dict):
+            chatbot_response = [chatbot_response]
+
+        print(type(chatbot_response))
+        print(chatbot_response)
+        # 리스트 처리
+        if isinstance(chatbot_response, list):
+            for i, data in enumerate(chatbot_response, 1):
+                if isinstance(data, dict):
+                    print_datas += f"=== 결과 {i} ===\n"
+                    print_datas += f"장소: {data.get('장소', 'N/A')}\n"
+                    print_datas += f"주소: {data.get('주소', 'N/A')}\n"
+                    print_datas += f"장면설명: {data.get('장면_설명', 'N/A')}\n"
+                    print_datas += f"장소설명: {data.get('장소_설명', 'N/A')}\n"
+                    print_datas += "\n"
+                else:
+                    print_datas += f"결과 {i}: {data}\n\n"
+        else:
+            print_datas = f"예상하지 못한 응답 형식:\n{chatbot_response}"
+            
+    except Exception as e:
+        print_datas = f"응답 처리 중 오류: {e}\n원본 응답: {chatbot_response}"
+    
+    return print_datas
+
 
 # Helper Function to Encode Image
 def get_img_as_base64(file_path):
@@ -159,9 +206,14 @@ if submitted and user_input:
     # 생성한 프롬프트를 기반으로 챗봇 답변을 생성
     chatbot_response = rag_funcs.run_rag_query(rag_chain, user_input)
 
+    # 웹에 출력한 데이터 추출 실행
+    print_datas = format_chatbot_response(chatbot_response)
+    print(print_datas)
+        
+
     # 화면에 보여주기 위해 사용자의 질문과 챗봇의 답변을 각각 저장
     st.session_state['past'].append(user_input)
-    st.session_state['generated'].append(chatbot_response)
+    st.session_state['generated'].append(print_datas)
 
 # 챗봇의 답변이 있으면 사용자의 질문과 챗봇의 답변을 가장 최근의 순서로 화면에 출력
 if st.session_state['generated']:
