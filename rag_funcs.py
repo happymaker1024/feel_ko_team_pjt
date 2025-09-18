@@ -61,15 +61,25 @@ def load_csv_and_split_documents(file_path):
     csv 파일 형태의 데이터를 로딩해서 데이터 스플릿함
     """
 
-    loader = CSVLoader(file_path=file_path, 
-                       encoding='utf-8')
+    loader = CSVLoader(
+        file_path=file_path, 
+        source_column="제목명",
+        # metadata_columns=['일련번호','미디어유형','제목명','장소명','장소유형','관련장소설명','운영시간','휴식시간','휴무일안내내용','주소','위치위도','위치경도','전화번호','최종수정일자'],
+        encoding='utf-8',
+        # csv_args={
+        #     'encoding': 'utf-8',
+        #     'delimiter': ',',
+        #     'quotechar': '"',
+        #     'on_bad_lines': 'skip'
+        # }
+    )
     all_docs = loader.load()
 
     print("파일이 로딩 됐습니다.")
     # chunk_size를 더 크게 설정
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=800, 
-        chunk_overlap=100
+        chunk_size=300, 
+        chunk_overlap=50
         )
     splits = text_splitter.split_documents(all_docs)
     return splits
@@ -93,7 +103,10 @@ def create_vector_db_with_google(splits: list):
 
 
 # 하드디스크 저장
-def create_vector_db_with_hf(splits: list, db_path: str = "./chroma_db"):
+def create_vector_db_with_hf(splits: list, 
+                             db_path: str = "./chroma_db",
+                             collection_name: str = "documents",
+                             ):
     """
     분할된 문서 청크를 사용하여 ChromaDB 벡터 DB를 생성하고 파일로 저장합니다.
     Hugging Face의 한국어 임베딩 모델을 사용합니다.
@@ -119,7 +132,8 @@ def create_vector_db_with_hf(splits: list, db_path: str = "./chroma_db"):
     vectorstore = Chroma.from_documents(
         documents=splits,
         embedding=embedding,
-        persist_directory=db_path
+        persist_directory=db_path,
+        collection_name=collection_name
     )
     
     # DB 저장
@@ -151,7 +165,7 @@ def load_vector_db(persist_directory: str = "./chroma_db",
         embedding_function=embeddings,
         collection_name=collection_name
     )
-    print("크로마DB 데이터 저장이 됐습니다.")
+    print("크로마DB 로딩 완료.")
     
     return vectorstore
 
@@ -160,6 +174,9 @@ class LocationInfo(BaseModel):
     장소: str = Field(description="영화/드라마 촬영 장소의 이름")
     주소: str = Field(description="영화/드라마 촬영 장소의 주소")
     장면_설명: str = Field(description="해당 장소에서 촬영된 영화/드라마 장면의 상세 설명")
+    장소_설명: str = Field(description="촬영 장소 상세 설명")
+    위도: float = Field(description="위도")
+    경도: float = Field(description="경도")
 
 # vector DB 검색, 검색 형식 json
 def get_rag_chain_with_json_output(vectorstore):
@@ -240,26 +257,27 @@ if __name__ == "__main__":
 
     # 1-2 csv 파일 로더
     # folder_path와 file_name을 결합하여 file_path = './data/KC_MEDIA_VIDO_AREA_DATA_2023.csv'
-    folder_path = './data'
-    file_name = 'KC_MEDIA_VIDO_AREA_DATA_2023.csv'
-    file_path = os.path.join(folder_path, file_name)
-
-    document_splits = load_csv_and_split_documents(file_path)
+    # folder_path = 'data'
+    # file_name = 'test_data_small.csv'
+    # # file_path = os.path.join(folder_path, file_name)
+    # file_path=f'{folder_path}/{file_name}'
+    # document_splits = load_csv_and_split_documents(file_path)
     
     
     # 2. 벡터 DB 생성
-    vector_db = create_vector_db_with_hf(document_splits)
+    # vector_db = create_vector_db_with_hf(document_splits)
     
 
     # vector db 구성 되어있을 경우
-    # vector_db = load_vector_db()
+    vector_db = load_vector_db()
 
     # 3. RAG 체인 구성
     # rag_chain = get_rag_chain(vector_db)
     rag_chain = get_rag_chain_with_json_output(vector_db)
     
     # 4. 사용자 쿼리 실행
-    query = "좋은 맛에 취하다"
+    query = "18 어게인"
+    # query = "좋은 맛에 취하다"
     resutl = run_rag_query(rag_chain, query)
     print("--- Generated Answer ---")
     print(resutl)
