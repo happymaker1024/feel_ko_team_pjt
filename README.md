@@ -6,7 +6,7 @@ KDT 팀프로젝트 저장소
 pip install langchain langchain-chroma langchain-community beautifulsoup4
 pip install langchain langchain-google-genai langchain-chroma beautifulsoup4
 pip install sentence-transformers
-pip install streamlit streamlit_cha
+pip install streamlit streamlit_chat
 ```
 
 # 개발 모듈 테스트
