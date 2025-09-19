@@ -55,7 +55,7 @@ def load_url_and_split_documents(urls: list):
     return splits
 
 
-# text 데이터 문서 로더
+# csv 데이터 문서 로더
 def load_csv_and_split_documents(file_path):
     """
     csv 파일 형태의 데이터를 로딩해서 데이터 스플릿함
@@ -281,4 +281,5 @@ if __name__ == "__main__":
     query = "슬기로운 의사생활"
     resutl = run_rag_query(rag_chain, query)
     print("--- Generated Answer ---")
+
     print(resutl)
