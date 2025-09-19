@@ -3,7 +3,8 @@ from streamlit_chat import message
 import base64
 import io
 import rag_funcs
-
+from streamlit_modal import Modal
+import streamlit.components.v1 as components
 
 # 1. 벡터 DB 객체 생성 (생성되어 있는 벡터 db 로딩)
 vector_db = rag_funcs.load_vector_db()
@@ -40,14 +41,35 @@ def format_chatbot_response(chatbot_response):
         print(chatbot_response)
         # 리스트 처리
         if isinstance(chatbot_response, list):
+
+            # 모달 트리거를 위한 세션 상태 초기화
+            st.session_state.modal_data = None
+
             for i, data in enumerate(chatbot_response, 1):
                 if isinstance(data, dict):
+                     # Google Maps URL 생성
+                    place = data.get('장소', 'N/A')
+                    address = data.get('주소', 'N/A')
+                    
+                    # URL 인코딩을 위해 place와 address를 URL 쿼리 문자열로 변환
+                    # '+' 대신 '%20'을 사용해도 되지만, Google Maps는 '+'를 잘 처리합니다.
+                    query = f"{place} {address}".replace(" ", "+")
+                    map_url = f"https://www.google.com/maps/search/?api=1&query={query}"
+
+                    # Markdown 형식의 링크 추가
+                    # `st.markdown`을 사용하기 위해 문자열을 구성합니다.
                     print_datas += f"=== 결과 {i} ===\n"
                     print_datas += f"장소: {data.get('장소', 'N/A')}\n"
+
+                    # 장소에 하이퍼링크를 추가합니다.
+                    #print_datas += f"장소: [{place}]({map_url})\n"# 장소 옆에 버튼 추가
+                    
+                    
                     print_datas += f"주소: {data.get('주소', 'N/A')}\n"
                     print_datas += f"장면설명: {data.get('장면_설명', 'N/A')}\n"
                     print_datas += f"장소설명: {data.get('장소_설명', 'N/A')}\n"
                     print_datas += "\n"
+
                 else:
                     print_datas += f"결과 {i}: {data}\n\n"
         else:
@@ -129,43 +151,90 @@ def get_img_as_base64(file_path):
 from PIL import Image
 
 # 헤더 생성
-def create_header():
-    with st.container():
-        left_col, right_col1, right_col2 = st.columns([4, 2, 2])
+# def create_header():
+#     with st.container():
+#         left_col, right_col1, right_col2 = st.columns([4, 2, 2])
         
-        # 왼쪽: 로고 + FeelKo
+#         # 왼쪽: 로고 + FeelKo
+#         with left_col:
+#             logo_col, text_col = st.columns([1, 5])
+            
+#             with logo_col:
+#                 try:
+#                     logo_img = Image.open("./images/logo.png")
+#                     st.image(logo_img, width=100, )
+#                 except FileNotFoundError:
+#                     # 로고 파일이 없을 때 대체 디자인
+#                     st.markdown("""
+#                     <div style="width: 90px; height: 90px; 
+#                                background: linear-gradient(135deg, #FF6B6B, #4ECDC4); 
+#                                border-radius: 15px; margin: 5px 0;
+#                                display: flex; align-items: center; justify-content: center;">
+#                         <span style="color: white; font-size: 28px; font-weight: bold;">F</span>
+#                     </div>
+#                     """, unsafe_allow_html=True)
+            
+#             with text_col:
+#                 st.markdown("""
+#                 <p style="margin: 0; font-size: 2.0rem; 
+#                            font-weight: 700; color: #2c3e50;">FeelKo</p>
+#                 """, unsafe_allow_html=True)
+        
+#         # 오른쪽: 버튼들
+#         with right_col1:
+#             if st.button("🎭 주인공과 촬각", use_container_width=True):
+#                 st.success("주인공과 촬각 시작!")
+#         with right_col2:
+                
+#             if st.button("📍 촬영지 검색", use_container_width=True):
+#                 st.success("촬영지 검색 시작!")
+
+
+# 헤더 생성
+def create_header():
+
+    with st.container():
+        left_col, right_col1, right_col2, right_col3 = st.columns([4, 3, 3, 2])
+        
         with left_col:
             logo_col, text_col = st.columns([1, 5])
             
             with logo_col:
                 try:
                     logo_img = Image.open("./images/logo.png")
-                    st.image(logo_img, width=100, )
+                    st.image(logo_img, width=100)
                 except FileNotFoundError:
-                    # 로고 파일이 없을 때 대체 디자인
                     st.markdown("""
-                    <div style="width: 90px; height: 90px; 
-                               background: linear-gradient(135deg, #FF6B6B, #4ECDC4); 
-                               border-radius: 15px; margin: 5px 0;
-                               display: flex; align-items: center; justify-content: center;">
+                    <div style="width: 90px; height: 90px;
+                                background: linear-gradient(135deg, #FF6B6B, #4ECDC4);
+                                border-radius: 15px; margin: 5px 0;
+                                display: flex; align-items: center; justify-content: center;">
                         <span style="color: white; font-size: 28px; font-weight: bold;">F</span>
                     </div>
                     """, unsafe_allow_html=True)
             
             with text_col:
                 st.markdown("""
-                <p style="margin: 0; font-size: 2.0rem; 
-                           font-weight: 700; color: #2c3e50;">FeelKo</p>
+                <p style="margin: 0; font-size: 2.0rem;
+                            font-weight: 700; color: #2c3e50;">FeelKo</p>
                 """, unsafe_allow_html=True)
         
-        # 오른쪽: 버튼들
         with right_col1:
             if st.button("🎭 주인공과 촬각", use_container_width=True):
                 st.success("주인공과 촬각 시작!")
+        
         with right_col2:
-                
             if st.button("📍 촬영지 검색", use_container_width=True):
                 st.success("촬영지 검색 시작!")
+        
+        with right_col3:
+            st.selectbox(
+                '언어',
+                options=['한국어', 'English', '日本語', '中文'],
+                label_visibility='collapsed'
+            )
+
+
 
 # 헤더 실행
 create_header()

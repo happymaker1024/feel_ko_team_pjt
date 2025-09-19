@@ -1,9 +1,14 @@
+# feel_ko_team_pjt
+KDT 팀프로젝트 저장소
+
 # 설치 라이브러리
 ```
-pip install langchain-community==0.3.27 
-pip install langchain-google-genai==2.0.9 
-pip install -U langchain-huggingface
-pip install langchain-chroma 
+pip install langchain langchain-chroma langchain-community beautifulsoup4
+pip install langchain-google-genai 
 pip install sentence-transformers
-pip install -U langchain
+```
+
+# streamlit 실행 방법
+```
+streamlit run app.py
 ```
